@@ -1,0 +1,19 @@
+POST  http://localhost:3003/api/users
+Content-Type: application/json
+
+{
+    "password": "weAreTheChampions",
+    "username": "jackDillan"
+}
+###
+DELETE http://localhost:3003/api/blogs/60ddc21d97d7183068c6bbe3
+###
+POST http://localhost:3003/api/blogs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImphY2tEaWxsYW4iLCJpZCI6IjYwZTFmZmVmOGJiZDVlMzA1ODQ4YTI2NSIsImlhdCI6MTYyNTQyMzg5OCwiZXhwIjoxNjI1NDI3NDk4fQ.X5GinXhru5GVJWZqGMBpfB8h7V_2Kk-gMAUJD5jbK8g 
+Content-Type: application/json
+
+{
+    "url": "gg.com",
+    "author": "Jack Bauer",
+    "title": "Pond"
+}
