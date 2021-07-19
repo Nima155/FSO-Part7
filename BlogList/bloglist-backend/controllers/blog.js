@@ -19,6 +19,18 @@ blogRouter.get("/", async (request, response) => {
 
 	response.json(blogs)
 })
+// posting a comment
+blogRouter.post("/:id/comments", async (request, response) => {
+	const data = await Blog.findByIdAndUpdate(
+		request.params.id,
+		{
+			$push: { comments: request.body.comment }, // update operator $push
+		},
+		{ new: true }
+	)
+
+	response.status(201).json(data)
+})
 /* 
 removed (next) from signature as 
 it's not needed due to express-async-erros
@@ -58,7 +70,8 @@ blogRouter.delete(
 			// functional programming.. not mutating the original array
 			const copyOfBlogs = request.user.blogs.concat()
 			// remove the removed blog from the user blogs list as well
-			copyOfBlogs.splice(copyOfBlogs.indexOf(dataToDelete), 1)
+
+			copyOfBlogs.splice(copyOfBlogs.indexOf(dataToDelete.id), 1)
 			request.user.blogs = copyOfBlogs
 			// actually remove from the database
 			await request.user.save()

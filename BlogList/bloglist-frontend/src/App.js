@@ -1,131 +1,177 @@
-import React, { useState, useEffect, useRef } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import Blog from "./components/Blog"
 import blogService from "./services/blogs"
+import {
+	setUserLoginAction,
+	setUserLogoutAction,
+	setUserThereAction,
+} from "./reducers/userReducer"
+import UserList from "./components/UserList"
 import { LoginForm } from "./components/LoginForm"
 import { CreateBlogForm } from "./components/CreateBlogForm"
-import loginService from "./services/login"
+import { Link, Route, Switch } from "react-router-dom"
 import Notification from "./components/Notification"
 import Togglable from "./components/Togglable"
+import { useDispatch, useSelector } from "react-redux"
+import { setBlogAction } from "./reducers/blogListReducer"
+import { setNotificationAction } from "./reducers/notificationReducer"
+import User from "./components/User"
+import { userListFetchAction } from "./reducers/userListReducer"
+import useIdToResource from "./hooks/useIdToResource"
+import {
+	AppBar,
+	Typography,
+	Button,
+	Toolbar,
+	Tabs,
+	Tab,
+	Grid,
+} from "@material-ui/core"
 const App = () => {
-	const [blogs, setBlogs] = useState([])
-	const [user, setUser] = useState(null)
+	const dispatch = useDispatch()
+	const [tabIndex, setTabIndex] = useState(0)
 	const togglableRef = useRef()
-	const [notificationMessage, setNotificationMessage] = useState("")
-	const [theme, setTheme] = useState("")
+
+	const [{ blogs }, { user }, userList] = useSelector((state) => [
+		state.blogs,
+		state.user,
+		state.userList,
+	]) // accessing the state of the redux store
 
 	// again for testing purposes
-	if (blogs.some((ele) => !ele.user))
-		setBlogs((blogs) => blogs.filter((ele) => ele.user))
+	if (blogs.some((ele) => !ele.user)) dispatch(setBlogAction(""))
 
-	function messageSetter(msg, color) {
-		setNotificationMessage(msg)
-		setTheme(color)
-		setTimeout(() => {
-			setNotificationMessage("")
-			setTheme("")
-		}, 5000)
-	}
+	const [userMatched, blogMatched] = useIdToResource(
+		"id",
+		["/users/:id", userList],
+		["/blogs/:id", blogs]
+	)
 
-	async function createBlog({ url, author, title }) {
+	async function createBlog(blog) {
 		try {
 			// hide the create blog form on creation by utilizing refs and forward refs and ....
 			togglableRef.current.toggleVisibility()
-			const response = await blogService.createBlog({
-				url,
-				author,
-				title,
-			})
 
-			setBlogs(blogs.concat(response))
-			messageSetter(`A new blog: ${title} by ${author} added`, "green")
+			await dispatch(setBlogAction(blog))
+			dispatch(
+				setNotificationAction(
+					`A new blog: ${blog.title} by ${blog.author} added`,
+					"green"
+				)
+			)
 		} catch (error) {
-			messageSetter(error.message, "red")
+			dispatch(setNotificationAction(error.message, "red"))
 		}
 	}
 
 	async function userLogin({ username, password }) {
 		try {
-			const response = await loginService(username, password)
-			// stringify json response and store in the local storage
-			blogService.setToken(response.token)
-			window.localStorage.setItem("blogUser", JSON.stringify(response))
-			// save the response as state
-			setUser(response)
+			await dispatch(setUserLoginAction(username, password))
 		} catch (error) {
-			messageSetter("wrong username or password", "red")
+			dispatch(setNotificationAction("wrong username or password", "red"))
 		}
 	}
 	// logout logic
 	function clickHandler() {
 		window.localStorage.removeItem("blogUser")
-		setUser("")
-	}
-	// fetch and sort
-	function resorter() {
-		blogService
-			.getAll()
-			.then((blogs) =>
-				setBlogs(blogs.concat().sort((a, b) => b.likes - a.likes))
-			)
-			.catch((err) => {
-				console.log(err.message)
-			})
+		dispatch(setUserLogoutAction())
 	}
 
 	// fetching all blogs from the database.. this will get called on every login and logout
 	useEffect(() => {
 		// fetch sorted blog
-		resorter()
-	}, [user])
+		// resorter()
+		dispatch(userListFetchAction())
+		dispatch(setBlogAction(""))
+	}, [])
 	// code for keeping a user logged in, even after a page refresh
 	useEffect(() => {
 		// check local storage
 		const userStringifiedJSON = window.localStorage.getItem("blogUser")
-
 		if (userStringifiedJSON) {
 			const currentUser = JSON.parse(userStringifiedJSON)
 			// check validity of the token...
 
 			if (Date.now() - currentUser.stampedDate < 3600000) {
-				setUser(currentUser)
+				dispatch(setUserThereAction(currentUser))
 				blogService.setToken(currentUser.token)
 			} else {
 				window.localStorage.removeItem("blogUser")
 			}
 		}
 	}, [])
-
+	const onTabChange = (event, newValue) => {
+		setTabIndex(newValue)
+	}
 	return (
-		<div>
+		<>
 			{user ? (
-				<>
-					<h2>blogs</h2>
-					<Notification theme={theme} message={notificationMessage} />
-					<p>
-						{user.username} logged in{" "}
-						<button onClick={clickHandler}>Logout</button>
-					</p>
-					{/* togglable is a reusable component */}
-					<Togglable buttonDialogue={"create new blog"} ref={togglableRef}>
-						<CreateBlogForm formSubmission={createBlog} />
-					</Togglable>
-					{blogs.map((blog) => (
-						<Blog
-							key={blog.id}
-							blog={blog}
-							resorter={resorter}
-							username={user.username}
-						/>
-					))}
-				</>
+				<div>
+					<AppBar position="static">
+						<Toolbar>
+							<Tabs
+								style={{ flexGrow: 1 }}
+								value={tabIndex}
+								onChange={onTabChange}
+							>
+								<Tab component={Link} label="Home" to="/" />
+								<Tab component={Link} label="Users" to="/users" />
+							</Tabs>
+							<Typography
+								style={{ marginRight: 5 }}
+							>{`${user.username}`}</Typography>
+							<Button onClick={clickHandler} color="inherit" size="small">
+								Logout
+							</Button>
+						</Toolbar>
+					</AppBar>
+
+					<Notification />
+
+					<Switch>
+						<Route path="/blogs/:id">
+							<Blog blog={blogMatched} username={user.username} />
+						</Route>
+						<Route path="/users/:id">
+							<User user={userMatched} />
+						</Route>
+						<Route path="/users">
+							<UserList />
+						</Route>
+						<Route path="/">
+							<Grid container direction="column">
+								<Typography variant="h4">Blog app</Typography>
+								{/* togglable is a reusable component */}
+								<Togglable
+									buttonDialogue={"create new blog"}
+									ref={togglableRef}
+								>
+									<CreateBlogForm formSubmission={createBlog} />
+								</Togglable>
+								{blogs
+									.map((blog) => (
+										<div
+											key={blog.id}
+											style={{
+												padding: 10,
+												border: "solid",
+												marginBottom: 3,
+											}}
+										>
+											<Link to={`/blogs/${blog.id}`}>{blog.title}</Link>
+										</div>
+									))
+									.sort((a, b) => b.likes - a.likes)}
+							</Grid>
+						</Route>
+					</Switch>
+				</div>
 			) : (
-				<>
-					<h2>log in to application</h2>
-					<Notification theme={theme} message={notificationMessage} />
+				<div>
 					<LoginForm onFormSubmission={userLogin} />
-				</>
+				</div>
 			)}
-		</div>
+		</>
 	)
 }
 

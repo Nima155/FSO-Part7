@@ -22,11 +22,11 @@ const blogSchema = new mongoose.Schema({
 		// setting default to 0 in case not set
 		default: 0,
 	},
-
 	user: {
 		type: mongoose.Schema.Types.ObjectId,
 		ref: "User",
 	},
+	comments: [String],
 })
 blogSchema.set("toJSON", {
 	transform: (document, returnedObject) => {
